@@ -14,8 +14,10 @@ cv.imshow('image',img)
 cv.waitKey(0)
 cv.destroyAllWindows()
 #%%
+import cv2 as cv
+import numpy as np
 img2 = cv.imread('Test1.png',0)
 cv.namedWindow('image2', cv.WINDOW_NORMAL)
 cv.imshow('image2',img2)
-cv.waitKey(0)
+cv.waitKey(1)
 cv.destroyAllWindows()
