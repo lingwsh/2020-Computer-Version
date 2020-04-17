@@ -33,10 +33,10 @@ def myransac(q1, q2, reprojThresh):
     '''
     N=len(q1)
     max_num = 0
+    status = []
     for _ in range(3*N):
         inlier = []
         num=0
-
         index = random.sample(range(0,N),4)
         fourq1=q1[index]
         fourq2=q2[index]
@@ -56,9 +56,15 @@ def myransac(q1, q2, reprojThresh):
         # choose H with most inliers        
         if num>max_num:
             max_num=num
-            bestH=H
+            status = inlier
+        
+    # using largest set of inliers re-compute H
+    mask = [s==1 for s in status]
+    sq1=q1[mask]
+    sq2=q2[mask]
+    H = linearAlg(sq1,sq2)
 
-    return bestH, inlier
+    return H, status
 
 
 def linearAlg(pts1,pts2):
@@ -121,9 +127,9 @@ if __name__ == "__main__":
     q1=[]
     q2=[]
     #-------------- test function projectpoints(K,R,t,Q)----------#
-    for i in range(100,800,50):
-        for j in range(200,400,10):
-            Q=np.array([i,j,1000,1])
+    for i in range(0,300,10):
+        for j in range(0,400,15):
+            Q=np.array([i,j,10,1])
             q1.append(projectpoints(K,R,t1,Q))
             q2.append(projectpoints(K,R,t2,Q))  
 
@@ -151,7 +157,7 @@ if __name__ == "__main__":
 
     #-------------test function ransac(pts1, pts2) ----------------#
 
-    H, status = findHomography(q1,q2,ransac=1,reprojThresh=2.0)
+    H, status = findHomography(q1,q2,ransac=1,reprojThresh=2)
     #H, status= findHomography(q1,q2)
     q1_homo_re= (H @ q2_homo.T).T
     for i in range(len(q1_homo_re)):
