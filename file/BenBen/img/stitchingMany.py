@@ -128,7 +128,7 @@ num = len(imgs_path)
 ino = 1
 for i in range(num):
     print('reading images: testimg/'+str(ino)+'.jpg')
-    img = cv2.imread('testimg/boat'+str(ino)+'.jpg')
+    img = cv2.imread('testimg/'+str(ino)+'.jpg')
     # cv2.imshow("img"+str(i), img)
     images.append(img)
     ino =ino + 1
@@ -157,13 +157,15 @@ for i in range(num):
 # ----------------------------------------------------------------------------
 # use different images test desc by H
 k=num-2
-print(k)
+# print(k)
 for i in range(num-1):
     print('stitching:'+str(i+1)+'/'+str(num-1))
     if i == 0:
         H = findhomograpyh(images[k],images[k+1])
         result = warpTwoImages(images[k],images[k+1],H)
-        print(k)
+        cv2.imwrite('result_06-3pics-'+str(k)+'_room.png',result)
+        cv2.imshow("img"+str(k), result)
+        # print(k)
         k = k-1
         continue
 
@@ -171,8 +173,8 @@ for i in range(num-1):
         # warpTwoImages(img1, img2, H)
     H = findhomograpyh(images[k],result)
     result = warpTwoImages(images[k],result,H)
-    print(k)
-    cv2.imwrite('result_04-'+str(k)+'_boat.png',result)
+    # print(k)
+    cv2.imwrite('result_06-3pics-'+str(k)+'_room.png',result)
     cv2.imshow("img"+str(k), result)
     k = k-1
 # ----------------------------------------------------------------------------
