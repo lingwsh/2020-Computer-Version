@@ -120,7 +120,30 @@ def warpTwoImages(img1, img2, H):
     result[t[1]:h1+t[1],t[0]:w1+t[0]] = img1
     return result
     
+# ----------------------------------------------------------------------------
+#%% cylindricalWarp before image, but this code not work for this version
+def cylindricalWarp(img, K):
+    """This function returns the cylindrical warp for a given image and intrinsics matrix K"""
+    h_,w_ = img.shape[:2]
+    # pixel coordinates
+    y_i, x_i = np.indices((h_,w_))
+    X = np.stack([x_i,y_i,np.ones_like(x_i)],axis=-1).reshape(h_*w_,3) # to homog
+    Kinv = np.linalg.inv(K) 
+    X = Kinv.dot(X.T).T # normalized coords
+    # calculate cylindrical coords (sin\theta, h, cos\theta)
+    A = np.stack([np.sin(X[:,0]),X[:,1],np.cos(X[:,0])],axis=-1).reshape(w_*h_,3)
+    B = K.dot(A.T).T # project back to image-pixels plane
+    # back from homog coords
+    B = B[:,:-1] / B[:,[-1]]
+    # make sure warp coords only within image bounds
+    B[(B[:,0] < 0) | (B[:,0] >= w_) | (B[:,1] < 0) | (B[:,1] >= h_)] = -1
+    B = B.reshape(h_,w_,-1)
     
+    img_rgba = cv2.cvtColor(img,cv2.COLOR_BGR2BGRA) # for transparent borders...
+    # warp the image according to cylindrical coords
+    return cv2.remap(img_rgba, B[:,:,0].astype(np.float32), B[:,:,1].astype(np.float32), cv2.INTER_AREA, borderMode=cv2.BORDER_TRANSPARENT)
+  
+#%%
 WINDOW_NAME = "Test Stitching On Mac"
 
 cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
@@ -132,7 +155,7 @@ print('start stitching...')
 imgs_path = glob.glob('testimg/*')
 images = []
 num = len(imgs_path)
-ino = 1
+ino = 2
 for i in range(num):
     print('reading images: testimg/'+str(ino)+'.jpg')
     img = cv2.imread('testimg/'+str(ino)+'.jpg')
@@ -148,13 +171,13 @@ for i in range(num-1):
     if i == 0:
         H = findhomograpyh(images[k],images[k+1])
         result = warpTwoImages(images[k],images[k+1],H)
-        cv2.imwrite('result_06-3pics-'+str(k)+'_room.png',result)
+        # cv2.imwrite('result_07-4pics-'+str(k)+'_room.png',result)
         cv2.imshow("img"+str(k), result)
         k = k-1
         continue
     H = findhomograpyh(images[k],result)
     result = warpTwoImages(images[k],result,H)
-    cv2.imwrite('result_06-3pics-'+str(k)+'_room.png',result)
+    # cv2.imwrite('result_07-4pics-'+str(k)+'_room.png',result)
     cv2.imshow("img"+str(k), result)
     k = k-1
 
