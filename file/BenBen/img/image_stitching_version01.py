@@ -155,7 +155,7 @@ print('start stitching...')
 imgs_path = glob.glob('testimg/*')
 images = []
 num = len(imgs_path)
-ino = 2
+ino = 1
 for i in range(num):
     print('reading images: testimg/'+str(ino)+'.jpg')
     img = cv2.imread('testimg/'+str(ino)+'.jpg')

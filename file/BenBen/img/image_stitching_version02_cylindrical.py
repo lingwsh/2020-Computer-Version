@@ -4,15 +4,15 @@
 Created on Tue May  5 00:16:04 2020
 
 @author: shuaiwang
-1.clean all the unnecessary codes in old files
-2.add explainations
-3.this code can stitch 3-4 pictures in sequence, if more than that, it will 
-distort very much
+1.in this version2, it will test how to produce correct cylindrical images
+2.when it stitchs the result images, how to solve the transparent problem. 
+Sometimes, the images will lost transparent pixels in the cylindrical progress and 
+the transparent pixels will lost transparent in the stitching progress.
 """
 import numpy as np
 import cv2
 import glob 
-import time
+# import time
 reprojThresh=4.0
 ratio=0.75
 
@@ -105,6 +105,9 @@ def findhomograpyh(img22,img11):
 #stitching images in full pixels
 def warpTwoImages(img1, img2, H):
     '''warp img2 to img1 with homograph H'''
+    img1 = cv2.cvtColor(img1,cv2.COLOR_BGR2BGRA)
+    img2 = cv2.cvtColor(img2,cv2.COLOR_BGR2BGRA)
+    
     h1,w1 = img1.shape[:2]
     h2,w2 = img2.shape[:2]
     pts1 = np.float32([[0,0],[0,h1],[w1,h1],[w1,0]]).reshape(-1,1,2)
@@ -116,10 +119,84 @@ def warpTwoImages(img1, img2, H):
     t = [-xmin,-ymin]
     Ht = np.array([[1,0,t[0]],[0,1,t[1]],[0,0,1]]) # translate
 
-    result = cv2.warpPerspective(img2, Ht.dot(H), (xmax-xmin, ymax-ymin))
-    result[t[1]:h1+t[1],t[0]:w1+t[0]] = img1
-    return result
+    result = cv2.warpPerspective(img2, Ht.dot(H), (xmax-xmin, ymax-ymin),borderMode=cv2.BORDER_TRANSPARENT)
     
+    
+    img2 = img1
+    img1 = result
+    # I want to put logo on top-left corner, So I create a ROI
+    rows,cols,channels = img2.shape
+    roi = img1[0:rows, 0:cols]
+    # Now create a mask of logo and create its inverse mask also
+    img2gray = cv2.cvtColor(img2,cv2.COLOR_BGR2GRAY)
+    ret, mask = cv2.threshold(img2gray, 10, 255, cv2.THRESH_BINARY)
+    mask_inv = cv2.bitwise_not(mask)
+    # Now black-out the area of logo in ROI
+    img1_bg = cv2.bitwise_and(roi,roi,mask = mask_inv)
+    # Take only region of logo from logo image.
+    img2_fg = cv2.bitwise_and(img2,img2,mask = mask)
+    # Put logo in ROI and modify the main image
+    dst = cv2.add(img1_bg,img2_fg)
+    img1[t[1]:h1+t[1],t[0]:w1+t[0] ] = dst
+
+    result = img1
+    # result = overlay_transparent(result,img1,t[1],t[0])
+    # result[t[1]:h1+t[1],t[0]:w1+t[0]] = img1
+    return result
+
+def overlay_transparent(background, overlay, x, y):
+
+    background_width = background.shape[1]
+    background_height = background.shape[0]
+
+    if x >= background_width or y >= background_height:
+        return background
+
+    h, w = overlay.shape[0], overlay.shape[1]
+
+    if x + w > background_width:
+        w = background_width - x
+        overlay = overlay[:, :w]
+
+    if y + h > background_height:
+        h = background_height - y
+        overlay = overlay[:h]
+
+    if overlay.shape[2] < 4:
+        overlay = np.concatenate(
+            [
+                overlay,
+                np.ones((overlay.shape[0], overlay.shape[1], 1), dtype = overlay.dtype) * 255
+            ],
+            axis = 2,
+        )
+
+    overlay_image = overlay[..., :3]
+    mask = overlay[..., 3:] / 255.0
+
+    background[y:y+h, x:x+w] = (1.0 - mask) * background[y:y+h, x:x+w] + mask * overlay_image
+
+    return background
+
+def blend_transparent(face_img, overlay_t_img):
+    # Split out the transparency mask from the colour info
+    overlay_img = overlay_t_img[:,:,:3] # Grab the BRG planes
+    overlay_mask = overlay_t_img[:,:,3:]  # And the alpha plane
+
+    # Again calculate the inverse mask
+    background_mask = 255 - overlay_mask
+
+    # Turn the masks into three channel, so we can use them as weights
+    overlay_mask = cv2.cvtColor(overlay_mask, cv2.COLOR_GRAY2BGR)
+    background_mask = cv2.cvtColor(background_mask, cv2.COLOR_GRAY2BGR)
+
+    # Create a masked out face image, and masked out overlay
+    # We convert the images to floating point in range 0.0 - 1.0
+    face_part = (face_img * (1 / 255.0)) * (background_mask * (1 / 255.0))
+    overlay_part = (overlay_img * (1 / 255.0)) * (overlay_mask * (1 / 255.0))
+
+    # And finally just add them together, and rescale it back to an 8bit integer image    
+    return np.uint8(cv2.addWeighted(face_part, 255.0, overlay_part, 255.0, 0.0))
 # ----------------------------------------------------------------------------
 
 def cylindricalWarp(img, K):
@@ -143,27 +220,20 @@ def cylindricalWarp(img, K):
     # warp the image according to cylindrical coords
     return cv2.remap(img_rgba, B[:,:,0].astype(np.float32), B[:,:,1].astype(np.float32), cv2.INTER_AREA, borderMode=cv2.BORDER_TRANSPARENT)
   
+
 #%%
-img = cv2.imread('testimg/result_04-0_boat.png')
-h, w = img.shape[:2]
-print('start')
-K = np.array([[3000,0,w/2],[0,3000,h/2],[0,0,1]]) # mock intrinsics
-img = cylindricalWarp(img, K)
-cv2.imwrite("result_pano_cylindricalWarp.png", img)
-print('finished')
-#%%
-# imgs_path = glob.glob('testimg/*')
-# images = []
-# num = len(imgs_path)
-# ino = 1
-# for i in range(num):
-#     print('reading images: testimg/'+str(ino)+'.jpg')
-#     img = cv2.imread('testimg/'+str(ino)+'.jpg')
-#     h, w = img.shape[:2]
-#     K = np.array([[3000,0,w/2],[0,3000,h/2],[0,0,1]]) # mock intrinsics
-#     img = cv2.cylindricalWarp(img, K)
-#     images.append(img)
-#     ino =ino + 1
+imgs_path = glob.glob('testimg/*')
+images = []
+num = len(imgs_path)
+ino = 1
+for i in range(num):
+    print('reading images: testimg/'+str(ino)+'.jpg')
+    img = cv2.imread('testimg/boat'+str(ino)+'.jpg')
+    h, w = img.shape[:2]
+    K = np.array([[3000,0,w/2],[0,2000,h/2],[0,0,1]]) # mock intrinsics
+    img = cylindricalWarp(img, K)
+    images.append(img)
+    ino =ino + 1
     
     
 # mm=0
@@ -184,15 +254,15 @@ cv2.startWindowThread()
 print('start stitching...')
 # ----------------------------------------------------------------------------
 # read all images in sequence
-imgs_path = glob.glob('testimg/*')
-images = []
-num = len(imgs_path)
-ino = 1
-for i in range(num):
-    print('reading images: testimg/'+str(ino)+'.jpg')
-    img = cv2.imread('testimg/'+str(ino)+'.png')
-    images.append(img)
-    ino =ino + 1
+# imgs_path = glob.glob('testimg/*')
+# images = []
+# num = len(imgs_path)
+# ino = 1
+# for i in range(num):
+#     print('reading images: testimg/'+str(ino)+'.jpg')
+#     img = cv2.imread('testimg/'+str(ino)+'.png')
+#     images.append(img)
+#     ino =ino + 1
     
 # ----------------------------------------------------------------------------
 # use images test desc by H. stitching images from last two, then stitching 
@@ -201,20 +271,22 @@ k=num-2
 for i in range(num-1):
     print('stitching:'+str(i+1)+'/'+str(num-1))
     if i == 0:
+        # cv2.imshow("imgk+1", images[k+1])
+        # cv2.imshow("imgk", images[k])
         H = findhomograpyh(images[k],images[k+1])
         result = warpTwoImages(images[k],images[k+1],H)
-        cv2.imwrite('result_07-4pics-'+str(k)+'_room.png',result)
+        # cv2.imwrite('result_07-4pics-'+str(k)+'_room.png',result)
         cv2.imshow("img"+str(k), result)
         k = k-1
         continue
     H = findhomograpyh(images[k],result)
     result = warpTwoImages(images[k],result,H)
-    cv2.imwrite('result_07-4pics-'+str(k)+'_room.png',result)
+    # cv2.imwrite('result_07-4pics-'+str(k)+'_room.png',result)
     cv2.imshow("img"+str(k), result)
     k = k-1
 
 print('finished')
-cv2.imshow("img pano", result)
+# cv2.imshow("img pano", result)
 
 cv2.waitKey(0)
 cv2.destroyAllWindows()
