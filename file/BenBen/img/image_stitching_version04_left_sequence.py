@@ -4,10 +4,14 @@
 Created on Tue May  5 00:16:04 2020
 
 @author: shuaiwang
-1.clean all the unnecessary codes in old files
-2.add explainations
-3.this code can stitch 3-4 pictures in sequence, if more than that, it will 
-distort very much
+finally, in this version, it can stitch six images successfully.
+1.choose the middle image first
+2.stitch left picture to the middle, the homograpyh matrix of middle image is the
+main matrix of whole stitching progress
+3.stitch right all picture in DESC sequence
+4.stitching the right images with middle and the right all images
+
+question:
 """
 import numpy as np
 import cv2
@@ -152,12 +156,14 @@ cv2.startWindowThread()
 print('start stitching...')
 # ----------------------------------------------------------------------------
 # read all images in sequence
+# imgs_path = glob.glob('testing3-building-5/*')
 imgs_path = glob.glob('testimg/*')
 images = []
 num = len(imgs_path)
 ino = 1
 for i in range(num):
     print('reading images: testimg/'+str(ino)+'.jpg')
+    # img = cv2.imread('testing3-building-5/'+str(ino)+'.jpg')
     img = cv2.imread('testimg/boat'+str(ino)+'.jpg')
     images.append(img)
     ino =ino + 1
@@ -181,33 +187,33 @@ for i in range(num-1):
     if i == 0:
         H = findhomograpyh(images[i+1],images[i])
         result = warpTwoImages(images[i+1],images[i],H)
-        cv2.imwrite('result_10-6pics-'+str(i)+'_boat_middle_perfect.png',result)
+        # cv2.imwrite('result_10-6pics-'+str(i)+'_boat_middle_perfect.png',result)
         cv2.imshow("img"+str(i), result)
         continue
     if i+1 <= mid:
         H = findhomograpyh(images[i+1],result)
         result = warpTwoImages(images[i+1],result,H)
-        cv2.imwrite('result_10-6pics-'+str(i)+'_boat_middle_perfect.png',result)
+        # cv2.imwrite('result_10-6pics-'+str(i)+'_boat_middle_perfect.png',result)
         cv2.imshow("img"+str(i), result)
         continue
     if i+1 == mid+1 and i < num-2:
         H = findhomograpyh(images[k], images[k+1])
         result2 = warpTwoImages(images[k], images[k+1],H)
-        cv2.imwrite('result_10-6pics-'+str(i)+'_boat_middle_perfect.png',result2)
+        # cv2.imwrite('result_10-6pics-'+str(i)+'_boat_middle_perfect.png',result2)
         cv2.imshow("img"+str(i), result2)
         k = k-1
         continue
     if i+1 > mid+1 and i < num-2:
         H = findhomograpyh(images[k], result2)
         result2 = warpTwoImages(images[k], result2,H)
-        cv2.imwrite('result_10-6pics-'+str(i)+'_boat_middle_perfect.png',result2)
+        # cv2.imwrite('result_10-6pics-'+str(i)+'_boat_middle_perfect.png',result2)
         cv2.imshow("img"+str(i), result2)   
         k = k-1
         continue
     if i == num-2:
         H = findhomograpyh(result, result2)
         result = warpTwoImages(result, result2,H)
-        cv2.imwrite('result_10-6pics-'+str(i)+'_boat_middle_perfect.png',result)
+        # cv2.imwrite('result_10-6pics-'+str(i)+'_boat_middle_perfect.png',result)
         cv2.imshow("img"+str(i), result)
         continue
     
